@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE properties SYSTEM "http://java.sun.com/dtd/properties.dtd">
+<properties>
+	<comment>BIP Server Information</comment>
+    <entry key="bipuri">{{bip_url}}</entry>
+	<entry key="username">{{user}}</entry>
+    <entry key="password">{{password}}</entry>
+</properties>
+
