@@ -1,0 +1,207 @@
+#!/bin/sh
+#
+# Copyright (c) 1997, 2016, Oracle and/or its affiliates. All rights reserved.
+#
+#  Oracle Wallet Manager
+#
+#
+
+if [ -z "$DISPLAY" ]; then
+   echo "****DISPLAY environment variable is not set!"
+   echo "    Set and export DISPLAY, then re-run."
+   exit 1
+fi
+
+
+#####################################
+# 1. remove unwanted stuff
+#####################################
+umask 77             # only user can read the wallet
+unset ORA_SEC_WLT
+
+#####################################
+# 2. identify where this script lives
+#####################################
+TOOLNAME=$0
+mypwd="`pwd`"
+case ${TOOLNAME} in
+  /*)  TOOLDIR=`dirname "${TOOLNAME}"` ;;
+   *)  TOOLDIR=`dirname "${mypwd}/${TOOLNAME}"` ;;
+esac
+
+TOOLHOME=`cd "${TOOLDIR}/.." ; pwd`
+TOOLROOT=`cd "${TOOLHOME}/.." ; pwd`
+
+if [ -z "$ORACLE_HOME" ]; then
+  _ORA_HOME=$TOOLHOME
+else
+  _ORA_HOME=$ORACLE_HOME
+fi
+
+#####################################
+# 3. locate JRE
+#####################################
+if [ ! -z "$ORACLE_HOME" -a -f "$ORACLE_HOME/jdk/bin/java" ]; then
+    JAVA_HOME=$ORACLE_HOME/jdk
+    export JAVA_HOME
+elif [ -z "$JAVA_HOME" ]; then
+  if [ -f "$TOOLHOME/jdk/bin/java" ]; then
+    JAVA_HOME=$TOOLHOME/jdk
+    export JAVA_HOME
+  else
+    echo "ERROR: No Java"
+    echo "$TOOLHOME/jdk or \$JAVA_HOME should point to valid Java runtime"
+    exit 1
+  fi
+elif [ ! -f "$JAVA_HOME/bin/java" ]; then
+    echo "ERROR: No Java"
+    echo "$JAVA_HOME should point to valid Java runtime"
+    exit 1
+fi
+
+#####################################
+# 3. locate Jars
+#####################################
+if [ -d "$TOOLROOT/oracle_common" ]; then
+  MW_MOD=$TOOLROOT/oracle_common/modules
+  PKILOC=${MW_MOD}/oracle.pki
+  RSALOC=${MW_MOD}/oracle.rsa
+  OSDTLOC=${MW_MOD}/oracle.osdt
+  SHARELOC=${MW_MOD}/oracle.bali.share
+  HELPLOC=${MW_MOD}/oracle.help_5.0
+  ICELOC=$HELPLOC
+  NEWHELPLOC=$HELPLOC
+  OWMLOC=$TOOLHOME/owm/jlib
+  OJLIB=${TOOLHOME}/jlib
+elif [ ! -z "$SRCHOME" ]; then
+  PROD_DIST=$SRCHOME/entsec/dist
+  PKILOC=$PROD_DIST/oracle.pki/modules/oracle.pki
+  RSALOC=$PROD_DIST/oracle.rsa.crypto/modules/oracle.rsa
+  OSDTLOC=$PROD_DIST/oracle.osdt.core/modules/oracle.osdt
+  OWMLOC=$SRCHOME/entsec/dist/oracle.ldap.owm/owm/jlib
+  OJLIB=${SRCHOME}/oracle/jlib
+  SHARELOC=$OWMLOC
+  NEWHELPLOC=$OWMLOC
+  HELPLOC=$OJLIB
+  ICELOC=$OJLIB
+else
+  if [ ! -z "$ORACLE_HOME" -a -d "$ORACLE_HOME" ]; then
+    OJLIB=$ORACLE_HOME/jlib
+    OWMLOC=$ORACLE_HOME/owm/jlib
+  else
+    OJLIB=$TOOLHOME/jlib
+    OWMLOC=$TOOLHOME/owm/jlib
+  fi
+  PKILOC=$OJLIB
+  RSALOC=$OJLIB
+  OSDTLOC=$OJLIB
+  SHARELOC=$OWMLOC
+  NEWHELPLOC=$OWMLOC
+  HELPLOC=$OJLIB
+  ICELOC=$OJLIB
+fi
+
+#added NEWHELPLOC for jars  to be used from different location in RDBMS & DB shiphome
+OWMJARS=${OWMLOC}/owm-3_0.jar:${OWMLOC}/owm_help.jar:${OWMLOC}/owm-images.jar
+PKIJARS=$PKILOC/oraclepki.jar:$OSDTLOC/osdt_core.jar:$OSDTLOC/osdt_cert.jar
+RSAJAR=$RSALOC/cryptoj.jar
+SHAREJAR=${SHARELOC}/balishare.jar
+NEWHELPJAR=${NEWHELPLOC}/help-ohj.jar:${NEWHELPLOC}/help-help-share.jar
+HELPJAR=:${HELPLOC}/help4.jar:${ICELOC}/oracle_ice.jar
+
+EWTJAR=$OJLIB/ewt3.jar:$OJLIB/jewt4.jar:$OJLIB/ewt.jar
+SWINGJAR=$OJLIB/swingall.jar
+EWTCOMPATJAR=$OJLIB/ewtcompat.jar:$OJLIB/ewtcompat-3_3_15.jar
+OEMLTJAR=$OJLIB/oemlt.jar:$OJLIB/oemlt-10_1_0.jar:$OJLIB/oracle_ice5.jar
+NETCFGJAR=$OJLIB/netcfg.jar
+
+PATH=$JAVA_HOME/bin:$PATH
+export PATH
+
+# Set JRE Classpath
+JRE_CLASSPATH=$JAVA_HOME/lib:$JAVA_HOME/lib/rt.jar:$JAVA_HOME/lib/i18n.jar
+
+# Set SDK Classpath
+SDK_CLASSPATH=$EWTJAR:$EWTCOMPATJAR:$HELPJAR:$SHAREJAR:$SWINGJAR:$NETCFGJAR
+
+
+# Set Classpath for the oracle wallet manager
+# Set Full classpath [Current dir+Source dir+JRE+SDK]
+#CLASSPATH=$JRE_CLASSPATH:$SDK_CLASSPATH:$OEMBASEJAR:$ORACLASSDIR:$OWM_CLASS
+CLASSPATH=$OWMJARS:$PKIJARS:$JRE_CLASSPATH:$SDK_CLASSPATH:$RSAJAR:$OEMLTJAR:$NEWHELPJAR
+export CLASSPATH
+
+# Get the platform
+PLATFORM=`uname`
+
+# Some platforms may need other JVM environment variables set
+# or unset as appropriate.
+case $PLATFORM in "AIX")
+   JAVA_COMPILER=NONE
+   export JAVA_COMPILER
+esac
+
+# Linux platform uses native threads.
+SET_DEFAULT=YES
+case $PLATFORM in "Linux")
+   SET_DEFAULT=NO
+   THREADS_FLAG=native 
+   export THREADS_FLAG
+esac
+case $SET_DEFAULT in "YES")
+#  we only use green threads for the other platforms
+   THREADS_TYPE=green_threads
+   export THREADS_TYPE
+esac
+
+# Set the shared library path for JNI shared libraries
+# A few platforms use an environment variable other than LD_LIBRARY_PATH
+SET_DEFAULT_VAR=YES
+SLLIBDIRNAME=lib
+
+# for Sparc64, HP-PA, HPI invoke java with -d64 option to run in 64-bit mode.
+JAVAMODE=
+# for specific platforms reset variables and set others as needed.
+case $PLATFORM in "HP-UX")
+   JAVAMODE=-d64
+esac
+case $PLATFORM in "AIX")
+   SET_DEFAULT_VAR=NO
+   LIBPATH=$ORACLE_HOME/$SLLIBDIRNAME:$ORACLE_HOME/ldap/$SLLIBDIRNAME:$LIBPATH
+   export LIBPATH
+esac
+case $PLATFORM in "SunOS")
+   PLATFORM_ARCH=`uname -p`
+   case $PLATFORM_ARCH in "sparc")
+       JAVAMODE=-d64
+       JRE_CLASSPATH=$JAVA_HOME/lib/sparcv9:$JAVA_HOME/lib/rt.jar:$JAVA_HOME/lib/i18n.jar
+   esac
+esac
+# if still selected, set the default variable name:LD_LIBRARY_PATH.
+case $SET_DEFAULT_VAR in "YES")
+   LD_LIBRARY_PATH=$ORACLE_HOME/$SLLIBDIRNAME:$ORACLE_HOME/ldap/$SLLIBDIRNAME:$LD_LIBRARY_PATH
+   export LD_LIBRARY_PATH
+esac
+
+if [ x$ARGUMENT1 = x"-pkcs11" ]; then
+   LD_LIBRARY_PATH_64=$ORACLE_HOME/lib:$ORACLE_HOME/ldap/lib:$LD_LIBRARY_PATH_64
+   export LD_LIBRARY_PATH_64
+fi
+
+FIPS_MODE_FLAG=FALSE
+for i in `eval "echo $*"`
+do
+  if [ $i = -fips_mode ]; then
+    FIPS_MODE_FLAG=TRUE
+  fi
+done
+
+
+# Run the wallet manager tool
+if [ "$FIPS_MODE_FLAG" = TRUE ]; then
+  $JAVA_HOME/bin/java $JAVAMODE -Dsun.java2d.font.DisableAlgorithmicStyles=true -DORACLE_HOME=$_ORA_HOME -DOWM_HOME=$_ORA_HOME/owm -DFIPS_140_2_MODE=true -cp $CLASSPATH oracle.security.admin.wltmgr.owma.OwmaApp oracle.security.admin.wltmgr.owma.OwmaApp
+else
+  $JAVA_HOME/bin/java $JAVAMODE -Dsun.java2d.font.DisableAlgorithmicStyles=true -DORACLE_HOME=$_ORA_HOME -DOWM_HOME=$_ORA_HOME/owm -cp $CLASSPATH oracle.security.admin.wltmgr.owma.OwmaApp oracle.security.admin.wltmgr.owma.OwmaApp
+fi
+
+echo "Done."

@@ -1,0 +1,5 @@
+@echo off
+cd %ORACLE_HOME%\bin
+set PATH=%ORACLE_HOME%\bin;%PATH%
+call %s_systemDirectory%\regsvr32.exe /s %1
+exit /B %ERRORLEVEL%

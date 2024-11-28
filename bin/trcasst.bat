@@ -1,0 +1,2 @@
+@echo off
+"C:\Users\uwalia\Desktop\TRASH\VBCS\V1046557-01\Oracle_Home\oracle.jdk\jre\bin\java" -classpath "C:\Users\uwalia\Desktop\TRASH\VBCS\V1046557-01\Oracle_Home\oracle.jdk\jre\lib\rt.jar;C:\Users\uwalia\Desktop\TRASH\VBCS\V1046557-01\Oracle_Home\oracle.jdk\jre\lib\i18n.jar;C:\Users\uwalia\Desktop\TRASH\VBCS\V1046557-01\Oracle_Home\network\jlib\trcasst.jar;" oracle.net.trcasst.Jtrcasst %1 %2 %3 %4 %5 %6 %7 %8 %9
